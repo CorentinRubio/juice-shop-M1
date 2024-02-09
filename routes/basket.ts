@@ -14,23 +14,34 @@ const challenges = require('../data/datacache').challenges
 
 module.exports = function retrieveBasket () {
   return (req: Request, res: Response, next: NextFunction) => {
-    const id = req.params.id
-    BasketModel.findOne({ where: { id }, include: [{ model: ProductModel, paranoid: false, as: 'Products' }] })
-      .then((basket: BasketModel | null) => {
-        /* jshint eqeqeq:false */
-        challengeUtils.solveIf(challenges.basketAccessChallenge, () => {
-          const user = security.authenticatedUsers.from(req)
-          return user && id && id !== 'undefined' && id !== 'null' && id !== 'NaN' && user.bid && user.bid != id // eslint-disable-line eqeqeq
-        })
-        if (((basket?.Products) != null) && basket.Products.length > 0) {
-          for (let i = 0; i < basket.Products.length; i++) {
-            basket.Products[i].name = req.__(basket.Products[i].name)
-          }
-        }
 
-        res.json(utils.queryResultToJson(basket))
-      }).catch((error: Error) => {
-        next(error)
-      })
+    const id = req.params.id;
+    if (req.headers.authorization != undefined && req.headers.authorization != null) {
+      const token = req.headers.authorization;
+
+      if (token != null) {
+        //var payload = security.decode(token)
+        var user = security.authenticatedUsers.from(req);
+        const id = user.bid; // On remplace l'id envoyé en paramètres par le basketId de l'utilisateur connecté
+
+      BasketModel.findOne({ where: { id }, include: [{ model: ProductModel, paranoid: false, as: 'Products' }] })
+        .then((basket: BasketModel | null) => {
+          /* jshint eqeqeq:false */
+          challengeUtils.solveIf(challenges.basketAccessChallenge, () => {
+            const user = security.authenticatedUsers.from(req)
+            return user && id && id !== 'undefined' && id !== 'null' && id !== 'NaN' && user.bid && user.bid != id // eslint-disable-line eqeqeq
+          })
+          if (((basket?.Products) != null) && basket.Products.length > 0) {
+            for (let i = 0; i < basket.Products.length; i++) {
+              basket.Products[i].name = req.__(basket.Products[i].name)
+            }
+          }
+
+          res.json(utils.queryResultToJson(basket))
+        }).catch((error: Error) => {
+          next(error)
+        })
+      }
+    }
   }
 }
